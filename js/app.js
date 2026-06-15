@@ -1,3 +1,4 @@
+
 /* =====================================================
    app.js — Página pública de emissão de certificados
 ===================================================== */
@@ -24,9 +25,8 @@ function atualizarSelectEvento(evs) {
   const sel  = document.getElementById('sel-evento');
   const wrap = document.getElementById('wrap-evento');
   if (evs.length > 1) {
-    // Guarda o índice REAL no localStorage junto com o nome
-    sel.innerHTML = evs.map((e) =>
-      `<option value="${e._idx}">${e.nome} — ${e.cidade}</option>`
+    sel.innerHTML = evs.map((e, i) =>
+      `<option value="${i}">${e.nome} — ${e.cidade}</option>`
     ).join('');
     wrap.style.display = '';
   } else {
@@ -56,8 +56,7 @@ function buscar() {
   const nome = document.getElementById('inp-nome').value.trim();
   if (!nome) { msgBusca('⚠️ Digite seu nome completo.', 'warning'); return; }
 
-  // Carrega todos os eventos com índice real preservado
-  const todos = getEventos().map((e, i) => ({ ...e, _idx: i }));
+  const todos = getEventos();
   const evs   = todos.filter(e => e.participantes?.length > 0);
 
   if (!evs.length) {
@@ -65,13 +64,15 @@ function buscar() {
     return;
   }
 
-  // Seleciona evento pelo índice real
-  let evento;
+  // Seleciona evento e guarda índice real no localStorage
+  let evento, idxReal;
   if (evs.length === 1) {
-    evento = evs[0];
+    evento   = evs[0];
+    idxReal  = todos.findIndex(e => e.nome === evento.nome && e.cidade === evento.cidade);
   } else {
-    const idxReal = parseInt(document.getElementById('sel-evento').value);
-    evento = todos[idxReal];
+    const sel = parseInt(document.getElementById('sel-evento').value);
+    evento    = evs[sel];
+    idxReal   = todos.findIndex(e => e.nome === evento.nome && e.cidade === evento.cidade);
   }
 
   // Busca exata
@@ -95,8 +96,8 @@ function buscar() {
   }
 
   msgBusca('✅ Participante encontrado! Gerando certificado...', 'success');
-  certAtual = { participante: enc, evento };
-  renderizarCertificado(enc, evento);
+  certAtual = { participante: enc, evento, idxReal };
+  renderizarCertificado(enc, evento, idxReal);
 }
 
 function preencherTexto(tmpl, dados) {
@@ -123,16 +124,12 @@ function quebrarLinhas(ctx, texto, maxLarg) {
   return linhas;
 }
 
-async function renderizarCertificado(participante, evento) {
+async function renderizarCertificado(participante, evento, idxReal) {
   const canvas = document.getElementById('canvas-cert');
   const ctx    = canvas.getContext('2d');
 
-  // Usa o índice REAL do evento para buscar o template correto
-  const idxReal = evento._idx !== undefined ? evento._idx
-    : getEventos().findIndex(e => e.nome === evento.nome);
-
+  // Busca template pelo índice real
   const tmplB64 = localStorage.getItem('cert_template_' + idxReal);
-
   console.log('Índice evento:', idxReal);
   console.log('Template encontrado:', !!tmplB64);
 
