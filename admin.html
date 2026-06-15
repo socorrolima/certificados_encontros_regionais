@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Admin — Certificados SNAS/MDS</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="css/style.css" rel="stylesheet"/>
+</head>
+<body>
+
+<div class="header d-flex align-items-center gap-3">
+  <div>
+    <div class="fw-bold" style="font-size:1.15rem">🏛️ SNAS / MDS — Administrador</div>
+    <div style="font-size:.78rem;opacity:.82">Secretaria Nacional de Assistência Social</div>
+  </div>
+  <div class="ms-auto d-flex align-items-center gap-3">
+    <span class="badge" style="background:#1a7a3c">GOV.BR</span>
+    <button class="btn btn-sm btn-outline-light" onclick="logout()"
+            id="btn-logout" style="display:none">🚪 Sair</button>
+  </div>
+</div>
+
+<div class="container py-4" style="max-width:820px">
+
+  <!-- LOGIN -->
+  <div id="tela-login" class="card p-4 mx-auto" style="max-width:420px">
+    <h6 class="fw-bold mb-3 text-center">🔐 Acesso Administrativo</h6>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Senha</label>
+      <input type="password" id="inp-senha" class="form-control"
+             placeholder="Digite a senha"
+             onkeydown="if(event.key==='Enter') loginAdmin()"/>
+    </div>
+    <button class="btn btn-primary w-100 fw-bold" onclick="loginAdmin()">Entrar</button>
+    <div id="err-login" class="alert alert-danger small mt-2 py-2" style="display:none"></div>
+    <p class="text-muted small text-center mt-3 mb-0">Senha padrão: <code>admin123</code></p>
+  </div>
+
+  <!-- PAINEL -->
+  <div id="painel" style="display:none">
+
+    <!-- EVENTOS -->
+    <div class="card p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0">📅 Eventos</h6>
+        <button class="btn btn-primary btn-sm fw-bold" onclick="abrirNovoEvento()">➕ Novo Evento</button>
+      </div>
+      <div id="lista-eventos"></div>
+    </div>
+
+    <!-- FORMULÁRIO -->
+    <div class="card p-4 mb-4" id="form-evento" style="display:none">
+      <h6 class="fw-bold mb-3" id="form-titulo">Novo Evento</h6>
+      <input type="hidden" id="ev-idx"/>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label fw-semibold">Nome do Evento *</label>
+          <input type="text" id="ev-nome" class="form-control"/>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Cidade *</label>
+          <input type="text" id="ev-cidade" class="form-control"/>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Período *</label>
+          <input type="text" id="ev-periodo" class="form-control"
+                 placeholder="20 e 21 de maio de 2026"/>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Carga Horária</label>
+          <input type="text" id="ev-carga" class="form-control" placeholder="16 horas"/>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold">Texto do Certificado *</label>
+          <small class="text-muted d-block mb-1">
+            Placeholders: <code>{Nome}</code> <code>{Municipio}</code>
+            <code>{Cidade}</code> <code>{Data}</code> <code>{Carga_Horaria}</code>
+          </small>
+          <textarea id="ev-texto" class="form-control" rows="4"
+            placeholder="Certificamos que {Nome}, representante do Município de {Municipio}, participou do Encontro Regional realizado em {Cidade} nos dias {Data}, com carga horária de {Carga_Horaria}."></textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold">🖼️ Template do Certificado (PNG/JPG)</label>
+          <small class="text-muted d-block mb-1">
+            Imagem de fundo em paisagem com assinaturas já incluídas
+          </small>
+          <input type="file" id="ev-template" class="form-control" accept=".png,.jpg,.jpeg"/>
+          <img id="prev-template" class="preview-img" style="display:none"/>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold">📋 Planilha de Participantes (XLSX/CSV)</label>
+          <small class="text-muted d-block mb-1">
+            Coluna obrigatória: <code>Nome</code> — opcional: <code>Municipio</code>
+          </small>
+          <input type="file" id="ev-planilha" class="form-control" accept=".xlsx,.xls,.csv"/>
+          <div id="prev-planilha" class="mt-2 small" style="display:none"></div>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-primary fw-bold" onclick="salvarEvento()">💾 Salvar</button>
+        <button class="btn btn-outline-secondary" onclick="fecharForm()">Cancelar</button>
+      </div>
+      <div id="msg-evento" class="mt-2" style="display:none"></div>
+    </div>
+
+    <!-- ALTERAR SENHA -->
+    <div class="card p-4 mb-4">
+      <h6 class="fw-bold mb-3">🔐 Alterar Senha</h6>
+      <div class="row g-2">
+        <div class="col-md-5">
+          <input type="password" id="nova-senha" class="form-control" placeholder="Nova senha"/>
+        </div>
+        <div class="col-md-4">
+          <input type="password" id="conf-senha" class="form-control" placeholder="Confirmar"/>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-outline-primary w-100 fw-bold" onclick="trocarSenha()">Salvar</button>
+        </div>
+      </div>
+      <div id="msg-senha" class="mt-2 small" style="display:none"></div>
+    </div>
+
+    <!-- LINK PÚBLICO -->
+    <div class="card p-4 mb-4">
+      <h6 class="fw-bold mb-2">🔗 Link para Participantes</h6>
+      <p class="text-muted small mb-2">Compartilhe este link com os participantes:</p>
+      <div class="input-group">
+        <input type="text" id="link-publico" class="form-control" readonly/>
+        <button class="btn btn-outline-secondary" onclick="copiarLink()">📋 Copiar</button>
+      </div>
+      <div id="msg-link" class="mt-1 small text-success" style="display:none">✅ Link copiado!</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
