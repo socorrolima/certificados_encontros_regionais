@@ -156,7 +156,7 @@ function gerar(p,ev,idx) {
     ctx.shadowColor='rgba(255,255,255,0.95)'; ctx.shadowBlur=6;
     var ls=[];
     for (var i=0;i<raws.length;i++) if(raws[i].trim()) { var sub=wrap(ctx,raws[i],mx); for(var j=0;j<sub.length;j++) ls.push(sub[j]); }
-    var th=ls.length*lh, y0=H*0.32-th/2+lh/2;
+    var th=ls.length*lh, y0=H*0.42-th/2+lh/2;
     for (var k=0;k<ls.length;k++) ctx.fillText(ls[k],W/2,y0+k*lh);
     ctx.shadowBlur=0;
     var cod='CERT-'+new Date().getFullYear()+'-'+String(Date.now()).slice(-6);
