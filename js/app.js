@@ -1,35 +1,32 @@
 /* =====================================================
    app.js — Página pública de emissão de certificados
-   Lê dados do localStorage (salvos pelo admin.js)
 ===================================================== */
 
 const STORAGE_KEY = 'cert_eventos';
 let certAtual = null;
 
-/* ── Inicialização ───────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   verificarConfig();
 });
-
-/* ── Verifica se admin configurou o sistema ──────── */
-function verificarConfig() {
-  const evs = getEventos().filter(e => e.participantes?.length > 0);
-  document.getElementById('aviso-config').style.display = evs.length ? 'none' : 'block';
-  atualizarSelectEvento(evs);
-}
 
 function getEventos() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
   catch(e) { return []; }
 }
 
-/* ── Select de eventos ───────────────────────────── */
+function verificarConfig() {
+  const evs = getEventos().filter(e => e.participantes?.length > 0);
+  document.getElementById('aviso-config').style.display = evs.length ? 'none' : 'block';
+  atualizarSelectEvento(evs);
+}
+
 function atualizarSelectEvento(evs) {
   const sel  = document.getElementById('sel-evento');
   const wrap = document.getElementById('wrap-evento');
   if (evs.length > 1) {
-    sel.innerHTML = evs.map((e, i) =>
-      `<option value="${i}">${e.nome} — ${e.cidade}</option>`
+    // Guarda o índice REAL no localStorage junto com o nome
+    sel.innerHTML = evs.map((e) =>
+      `<option value="${e._idx}">${e.nome} — ${e.cidade}</option>`
     ).join('');
     wrap.style.display = '';
   } else {
@@ -37,7 +34,6 @@ function atualizarSelectEvento(evs) {
   }
 }
 
-/* ── Normalização de texto ───────────────────────── */
 function normalizar(t) {
   if (!t) return '';
   return t.trim().toLowerCase()
@@ -56,20 +52,27 @@ function similaridade(a, b) {
   return comuns.length / Math.max(pa.size, pb.size);
 }
 
-/* ── Busca participante ──────────────────────────── */
 function buscar() {
   const nome = document.getElementById('inp-nome').value.trim();
   if (!nome) { msgBusca('⚠️ Digite seu nome completo.', 'warning'); return; }
 
-  const evs = getEventos().filter(e => e.participantes?.length > 0);
+  // Carrega todos os eventos com índice real preservado
+  const todos = getEventos().map((e, i) => ({ ...e, _idx: i }));
+  const evs   = todos.filter(e => e.participantes?.length > 0);
+
   if (!evs.length) {
     msgBusca('⚠️ Sistema não configurado. Contate o administrador.', 'warning');
     return;
   }
 
-  const evento = evs.length === 1
-    ? evs[0]
-    : evs[parseInt(document.getElementById('sel-evento').value)];
+  // Seleciona evento pelo índice real
+  let evento;
+  if (evs.length === 1) {
+    evento = evs[0];
+  } else {
+    const idxReal = parseInt(document.getElementById('sel-evento').value);
+    evento = todos[idxReal];
+  }
 
   // Busca exata
   const nb  = normalizar(nome);
@@ -96,7 +99,6 @@ function buscar() {
   renderizarCertificado(enc, evento);
 }
 
-/* ── Preenche placeholders no texto ─────────────── */
 function preencherTexto(tmpl, dados) {
   let t = tmpl;
   Object.entries(dados).forEach(([k, v]) => {
@@ -105,7 +107,6 @@ function preencherTexto(tmpl, dados) {
   return t;
 }
 
-/* ── Quebra linha automaticamente no canvas ──────── */
 function quebrarLinhas(ctx, texto, maxLarg) {
   const palavras = texto.split(' ');
   const linhas   = [];
@@ -113,8 +114,7 @@ function quebrarLinhas(ctx, texto, maxLarg) {
   for (const p of palavras) {
     const teste = atual ? atual + ' ' + p : p;
     if (ctx.measureText(teste).width > maxLarg && atual) {
-      linhas.push(atual);
-      atual = p;
+      linhas.push(atual); atual = p;
     } else {
       atual = teste;
     }
@@ -123,19 +123,24 @@ function quebrarLinhas(ctx, texto, maxLarg) {
   return linhas;
 }
 
-/* ── Renderiza certificado no canvas ─────────────── */
 async function renderizarCertificado(participante, evento) {
   const canvas = document.getElementById('canvas-cert');
   const ctx    = canvas.getContext('2d');
 
-  // Carrega template (base64 salvo pelo admin)
-  const idxEvento = getEventos().findIndex(e => e.nome === evento.nome);
-  const tmplB64   = localStorage.getItem('cert_template_' + idxEvento);
+  // Usa o índice REAL do evento para buscar o template correto
+  const idxReal = evento._idx !== undefined ? evento._idx
+    : getEventos().findIndex(e => e.nome === evento.nome);
+
+  const tmplB64 = localStorage.getItem('cert_template_' + idxReal);
+
+  console.log('Índice evento:', idxReal);
+  console.log('Template encontrado:', !!tmplB64);
 
   let tmpl;
   if (tmplB64) {
     tmpl = await loadImg(tmplB64);
   } else {
+    console.warn('Template não encontrado, usando demo.');
     tmpl = await demoImg();
   }
 
@@ -144,12 +149,11 @@ async function renderizarCertificado(participante, evento) {
   canvas.width  = W;
   canvas.height = H;
 
-  // Desenha template
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, W, H);
   ctx.drawImage(tmpl, 0, 0, W, H);
 
-  // Monta texto
+  // Texto com placeholders preenchidos
   const texto = preencherTexto(evento.texto, {
     Nome:          participante.nome,
     Municipio:     participante.municipio || '',
@@ -158,7 +162,6 @@ async function renderizarCertificado(participante, evento) {
     Carga_Horaria: evento.carga,
   });
 
-  // Desenha texto com quebra automática
   const linhasRaw = texto.split('\n').filter(l => l.trim());
   const szTexto   = Math.round(W * 0.020);
   const lhTexto   = szTexto * 1.7;
@@ -183,7 +186,6 @@ async function renderizarCertificado(participante, evento) {
   const codigo = 'CERT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-6);
   certAtual.codigo = codigo;
 
-  // Exibe preview
   document.getElementById('area-preview').style.display = 'block';
   document.getElementById('area-preview').scrollIntoView({ behavior: 'smooth' });
   document.getElementById('cert-codigo').innerHTML =
@@ -194,8 +196,9 @@ async function renderizarCertificado(participante, evento) {
   qw.style.display = 'block';
   document.getElementById('qr').innerHTML = '';
   new QRCode(document.getElementById('qr'), {
-    text:   window.location.origin + window.location.pathname.replace('index.html','')
-            + 'validar.html?cert=' + codigo,
+    text:   window.location.origin +
+            window.location.pathname.replace('index.html', '') +
+            'validar.html?cert=' + codigo,
     width:  100,
     height: 100
   });
@@ -203,19 +206,6 @@ async function renderizarCertificado(participante, evento) {
   msgBusca('✅ Certificado gerado para: ' + participante.nome, 'success');
 }
 
-/* ── Download PDF ────────────────────────────────── */
-function baixarPDF() {
-  if (!certAtual) return;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  doc.addImage(
-    document.getElementById('canvas-cert').toDataURL('image/png', 1.0),
-    'PNG', 0, 0, 297, 210
-  );
-  doc.save('Certificado_' + certAtual.participante.nome.replace(/\s+/g, '_') + '.pdf');
-}
-
-/* ── Utilitários ─────────────────────────────────── */
 function loadImg(src) {
   return new Promise((res, rej) => {
     const img   = new Image();
@@ -233,8 +223,7 @@ async function demoImg() {
   const g   = ctx.createLinearGradient(0, 0, W, H);
   g.addColorStop(0, '#eef2ff');
   g.addColorStop(1, '#dbeafe');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = '#003580'; ctx.lineWidth = 28;
   ctx.strokeRect(36, 36, W - 72, H - 72);
   ctx.strokeStyle = '#1a56db'; ctx.lineWidth = 8;
@@ -250,6 +239,17 @@ async function demoImg() {
   const img = new Image();
   img.src   = c.toDataURL('image/png');
   return new Promise(res => { img.onload = () => res(img); });
+}
+
+function baixarPDF() {
+  if (!certAtual) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  doc.addImage(
+    document.getElementById('canvas-cert').toDataURL('image/png', 1.0),
+    'PNG', 0, 0, 297, 210
+  );
+  doc.save('Certificado_' + certAtual.participante.nome.replace(/\s+/g, '_') + '.pdf');
 }
 
 function msgBusca(txt, tipo) {
